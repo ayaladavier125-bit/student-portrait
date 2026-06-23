@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>学生数字画像系统</title>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --bg-primary: #0f0f23;
+            --bg-card: rgba(30, 30, 60, 0.8);
+            --accent-blue: #00d4ff;
+            --accent-purple: #a855f7;
+            --accent-green: #10b981;
+            --accent-orange: #f59e0b;
+            --accent-red: #ef4444;
+            --text-primary: #ffffff;
+            --text-secondary: #8892b0;
+            --border-glow: rgba(0, 212, 255, 0.3);
+        }
+        body {
+            font-family: 'Noto Sans SC', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+        }
+        .bg-pattern {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 0;
+            background-image: 
+                radial-gradient(circle at 20% 80%, rgba(0, 212, 255, 0.05) 0%, transparent 50%),
+                radial-gradient(circle at 80% 20%, rgba(168, 85, 247, 0.05) 0%, transparent 50%),
+                radial-gradient(circle at 50% 50%, rgba(0, 212, 255, 0.03) 0%, transparent 70%);
+        }
+        .app-container { position: relative; z-index: 1; }
+
+        /* 顶部导航栏 */
+        .navbar {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 1rem 2rem; background: rgba(20, 20, 40, 0.9);
+            backdrop-filter: blur(10px); border-bottom: 1px solid var(--border-glow);
+            position: sticky; top: 0; z-index: 100;
+        }
+        .navbar-title {
+            font-family: 'Orbitron', sans-serif; font-size: 1.3rem; font-weight: 700;
+            color: var(--text-primary);
+        }
+        .navbar-title span { color: var(--accent-blue); }
+        .nav-menu { display: flex; gap: 0.5rem; }
+        .nav-btn {
+            padding: 0.5rem 1rem; border-radius: 8px; cursor: pointer;
+            background: transparent; border: 1px solid transparent;
+            color: var(--text-secondary); font-size: 0.9rem; transition: all 0.3s ease;
+            display: flex; align-items: center; gap: 0.3rem;
+        }
+        .nav-btn:hover { color: var(--accent-blue); border-color: var(--border-glow); }
+        .nav-btn.active {
+            background: rgba(0, 212, 255, 0.15); color: var(--accent-blue);
+            border-color: var(--accent-blue);
+        }
+
+        /* 搜索栏 */
+        .search-bar {
+            display: flex; justify-content: center; padding: 1.5rem 2rem; gap: 1rem;
+        }
+        .search-select {
+            padding: 0.75rem 1.5rem; background: rgba(30, 30, 60, 0.8);
+            border: 1px solid var(--border-glow); border-radius: 10px;
+            color: var(--text-primary); font-size: 0.9rem; min-width: 250px;
+        }
+        .search-select:focus { outline: none; border-color: var(--accent-blue); }
+        .search-btn {
+            padding: 0.75rem 1.5rem; background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+            border: none; border-radius: 10px; color: white; font-weight: 500; cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .search-btn:hover { transform: translateY(-2px); box-shadow: 0 5px 20px rgba(0, 212, 255, 0.4); }
+
+        /* 主内容区 */
+        .content { padding: 0 2rem 2rem; }
+
+        /* 行布局 */
+        .row { display: grid; gap: 1rem; margin-bottom: 1rem; }
+        .row.four-col { grid-template-columns: repeat(4, 1fr); }
+        .row.three-col { grid-template-columns: repeat(3, 1fr); }
+        .row.two-col { grid-template-columns: repeat(2, 1fr); }
+
+        /* 紧凑卡片 */
+        .card.compact { padding: 1rem; }
+        .card.compact.gauge-card { display: flex; flex-direction: column; }
+        .card.compact.gauge-card .gauge-container { flex: 1; display: flex; align-items: center; justify-content: center; }
+        .card.compact.stat-mini { display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1rem; }
+
+        .card { background: var(--bg-card); border-radius: 14px; padding: 1.25rem; border: 1px solid var(--border-glow); }
+        .card-title { font-size: 0.95rem; font-weight: 600; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.4rem; color: var(--text-primary); }
+        .card-title::before { content: ''; width: 3px; height: 16px; background: var(--accent-blue); border-radius: 2px; }
+
+        /* 仪表盘 */
+        .gauge-container { display: flex; justify-content: center; align-items: center; height: 130px; }
+        .gauge-ring { width: 100px; height: 100px; position: relative; }
+        .gauge-bg { width: 100%; height: 100%; border-radius: 50%; background: conic-gradient(var(--accent-blue) 0deg, var(--accent-purple) 360deg); mask: radial-gradient(farthest-side, transparent calc(100% - 10px), #fff calc(100% - 10px)); -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 10px), #fff calc(100% - 10px)); }
+        .gauge-fill { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border-radius: 50%; background: conic-gradient(var(--accent-blue) 0deg, var(--accent-blue) var(--fill), transparent var(--fill)); mask: radial-gradient(farthest-side, transparent calc(100% - 10px), #fff calc(100% - 10px)); -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 10px), #fff calc(100% - 10px)); transition: all 0.5s ease; }
+        .gauge-inner { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 70px; height: 70px; border-radius: 50%; background: var(--bg-card); display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .gauge-value { font-family: 'Orbitron', sans-serif; font-size: 1.3rem; font-weight: 700; color: var(--accent-blue); }
+        .gauge-label { font-size: 0.65rem; color: var(--text-secondary); }
+
+        /* 统计小卡片 */
+        .stat-mini .stat-icon { font-size: 1.5rem; }
+        .stat-mini .stat-value { font-family: 'Orbitron', sans-serif; font-size: 1.3rem; font-weight: 700; color: var(--accent-blue); }
+        .stat-mini .stat-label { font-size: 0.8rem; color: var(--text-secondary); }
+
+        /* 信息列表 */
+        .info-list { display: flex; flex-direction: column; gap: 0.5rem; }
+        .info-item { display: flex; justify-content: space-between; padding: 0.5rem; background: rgba(0, 0, 0, 0.2); border-radius: 8px; }
+        .info-label { color: var(--text-secondary); font-size: 0.85rem; }
+        .info-value { color: var(--text-primary); font-weight: 500; }
+
+        /* 图表容器 */
+        .chart-box { height: 280px; }
+
+        /* 推荐列表 */
+        .rec-list { display: flex; flex-direction: column; gap: 0.6rem; }
+        .rec-item {
+            padding: 0.75rem; background: rgba(0, 212, 255, 0.08);
+            border-left: 3px solid var(--accent-blue); border-radius: 0 8px 8px 0;
+            font-size: 0.85rem; transition: all 0.3s ease;
+        }
+        .rec-item:hover { background: rgba(0, 212, 255, 0.15); transform: translateX(5px); }
+
+        /* 预警卡片 */
+        .alert-box {
+            padding: 1rem; border-radius: 10px; margin-bottom: 1rem;
+            display: flex; align-items: center; gap: 1rem;
+        }
+        .alert-danger { background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.3); }
+        .alert-warning { background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.3); }
+        .alert-success { background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); }
+
+        /* 标签 */
+        .tag { display: inline-block; padding: 0.2rem 0.6rem; border-radius: 15px; font-size: 0.75rem; font-weight: 500; }
+        .tag-blue { background: rgba(0, 212, 255, 0.2); color: var(--accent-blue); }
+        .tag-green { background: rgba(16, 185, 129, 0.2); color: var(--accent-green); }
+        .tag-orange { background: rgba(245, 158, 11, 0.2); color: var(--accent-orange); }
+        .tag-red { background: rgba(239, 68, 68, 0.2); color: var(--accent-red); }
+
+        /* 表格 */
+        .data-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+        .data-table th, .data-table td { padding: 0.5rem; text-align: left; border-bottom: 1px solid rgba(0, 212, 255, 0.1); }
+        .data-table th { color: var(--text-secondary); font-weight: 500; }
+
+        /* 响应式 */
+        @media (max-width: 1400px) { .row { grid-template-columns: repeat(3, 1fr); } .row.four-col { grid-template-columns: repeat(4, 1fr); } }
+        @media (max-width: 1024px) { .row, .row.four-col, .row.three-col { grid-template-columns: repeat(2, 1fr); } .row.two-col { grid-template-columns: 1fr; } }
+        @media (max-width: 768px) { .row, .row.four-col, .row.three-col, .row.two-col { grid-template-columns: 1fr; } .nav-menu { display: none; } }
+
+        /* 错误提示 */
+        .error-msg {
+            position: fixed; top: 20px; right: 20px; padding: 1rem 1.5rem;
+            background: rgba(239, 68, 68, 0.2); border: 1px solid #ef4444;
+            border-radius: 8px; color: #fff; z-index: 9999;
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-pattern"></div>
+    <div class="app-container">
+        <nav class="navbar">
+            <div class="navbar-title">🎓 学生 <span>数字画像</span> 系统</div>
+            <div class="nav-menu">
+                <button class="nav-btn active" data-section="profile">📊 画像</button>
+                <button class="nav-btn" data-section="risk">🚨 预警</button>
+                <button class="nav-btn" data-section="family">⚖️ 公平</button>
+                <button class="nav-btn" data-section="phone">📱 手机</button>
+                <button class="nav-btn" data-section="graduation">🎓 毕业</button>
+                <button class="nav-btn" data-section="recommend">💡 推荐</button>
+            </div>
+        </nav>
+
+        <div class="search-bar">
+            <select id="studentSelect" class="search-select"><option value="">选择学生...</option></select>
+            <button class="search-btn" id="randomBtn">🎲 随机</button>
+        </div>
+
+        <main class="content">
+            <!-- 画像查询 -->
+            <section id="section-profile" class="content-section" style="display:block;">
+                <div class="row four-col">
+                    <div class="card compact stat-mini"><div class="stat-icon">👥</div><div class="stat-info"><div class="stat-value" id="p-cluster">-</div><div class="stat-label">所属群体</div></div></div>
+                    <div class="card compact stat-mini"><div class="stat-icon">📈</div><div class="stat-info"><div class="stat-value" id="p-gpa">-</div><div class="stat-label">当前 GPA</div></div></div>
+                    <div class="card compact stat-mini"><div class="stat-icon">🎯</div><div class="stat-info"><div class="stat-value" id="p-grad">-</div><div class="stat-label">毕业达成度</div></div></div>
+                    <div class="card compact stat-mini"><div class="stat-icon">⚠️</div><div class="stat-info"><div class="stat-value" id="p-risk">-</div><div class="stat-label">挂科风险</div></div></div>
+                </div>
+                <div class="row four-col">
+                    <div class="card compact"><div class="card-title">📋 基本信息</div><div class="info-list" id="p-basic"></div></div>
+                    <div class="card compact gauge-card"><div class="card-title">📚 学习投入</div><div class="gauge-container"><div class="gauge-ring"><div class="gauge-bg"></div><div class="gauge-fill" id="gauge-study"></div><div class="gauge-inner"><div class="gauge-value" id="val-study">-</div><div class="gauge-label">投入指数</div></div></div></div></div>
+                    <div class="card compact gauge-card"><div class="card-title">🌙 生活规律</div><div class="gauge-container"><div class="gauge-ring"><div class="gauge-bg"></div><div class="gauge-fill" id="gauge-life"></div><div class="gauge-inner"><div class="gauge-value" id="val-life">-</div><div class="gauge-label">规律指数</div></div></div></div></div>
+                    <div class="card compact gauge-card"><div class="card-title">💚 心理健康</div><div class="gauge-container"><div class="gauge-ring"><div class="gauge-bg"></div><div class="gauge-fill" id="gauge-mental"></div><div class="gauge-inner"><div class="gauge-value" id="val-mental">-</div><div class="gauge-label">健康指数</div></div></div></div></div>
+                </div>
+                <div class="row two-col">
+                    <div class="card"><div class="card-title">🎯 画像雷达图</div><div class="chart-box" id="p-radar"></div></div>
+                    <div class="card"><div class="card-title">💡 个性化推荐</div><div class="rec-list" id="p-recs"></div></div>
+                </div>
+            </section>
+
+            <!-- 风险预警 -->
+            <section id="section-risk" class="content-section" style="display:none;">
+                <div class="alert-box" id="r-alert"><div style="font-size:1.5rem">🔴</div><div><h4>风险状态</h4><p id="r-alert-text">加载中...</p></div></div>
+                <div class="row four-col">
+                    <div class="card compact stat-mini"><div class="stat-icon">📚</div><div class="stat-info"><div class="stat-value" id="r-failed-total">-</div><div class="stat-label">累计挂科</div></div></div>
+                    <div class="card compact stat-mini"><div class="stat-icon">📅</div><div class="stat-info"><div class="stat-value" id="r-failed-current">-</div><div class="stat-label">本学期挂科</div></div></div>
+                    <div class="card compact stat-mini"><div class="stat-icon">💬</div><div class="stat-info"><div class="stat-value" id="r-warning">-</div><div class="stat-label">预警记录</div></div></div>
+                    <div class="card compact stat-mini"><div class="stat-icon">🎓</div><div class="stat-info"><div class="stat-value" id="r-tutoring">-</div><div class="stat-label">接受辅导</div></div></div>
+                </div>
+                <div class="row three-col">
+                    <div class="card"><div class="card-title">📊 全院风险分布</div><div class="chart-box" id="r-pie"></div></div>
+                    <div class="card"><div class="card-title">📈 各风险等级GPA</div><div class="chart-box" id="r-gpa"></div></div>
+                    <div class="card"><div class="card-title">👥 各群体风险分布</div><div class="chart-box" id="r-cluster"></div></div>
+                </div>
+            </section>
+
+            <!-- 公平分析 -->
+            <section id="section-family" class="content-section" style="display:none;">
+                <div class="row four-col">
+                    <div class="card compact stat-mini"><div class="stat-icon">💰</div><div class="stat-info"><div class="stat-value" id="f-poverty-stat">-</div><div class="stat-label">贫困生人数</div></div></div>
+                    <div class="card compact stat-mini"><div class="stat-icon">🏘️</div><div class="stat-info"><div class="stat-value" id="f-rural-stat">-</div><div class="stat-label">农村学生</div></div></div>
+                    <div class="card compact stat-mini"><div class="stat-icon">👶</div><div class="stat-info"><div class="stat-value" id="f-only-stat">-</div><div class="stat-label">独生子女</div></div></div>
+                    <div class="card compact stat-mini"><div class="stat-icon">📊</div><div class="stat-info"><div class="stat-value" id="f-gap-stat">-</div><div class="stat-label">GPA差距</div></div></div>
+                </div>
+                <div class="row two-col">
+                    <div class="card"><div class="card-title">📋 家庭背景</div><div class="info-list" id="f-info"></div></div>
+                    <div class="card"><div class="card-title">💰 贫困生 vs 非贫困生 GPA</div><div class="chart-box" id="f-poverty"></div></div>
+                </div>
+                <div class="row two-col">
+                    <div class="card"><div class="card-title">🏘️ 户籍类型 GPA</div><div class="chart-box" id="f-native"></div></div>
+                    <div class="card"><div class="card-title">💵 收入等级 GPA</div><div class="chart-box" id="f-income"></div></div>
+                </div>
+            </section>
+
+            <!-- 手机分析 -->
+            <section id="section-phone" class="content-section" style="display:none;">
+                <div class="row four-col">
+                    <div class="card compact stat-mini"><div class="stat-icon">📱</div><div class="stat-info"><div class="stat-value" id="ph-hours">-</div><div class="stat-label">手机使用时长</div></div></div>
+                    <div class="card compact stat-mini"><div class="stat-icon">📊</div><div class="stat-info"><div class="stat-value" id="ph-level">-</div><div class="stat-label">依赖程度</div></div></div>
+                    <div class="card compact stat-mini"><div class="stat-icon">📉</div><div class="stat-info"><div class="stat-value" id="ph-corr">-</div><div class="stat-label">与GPA相关性</div></div></div>
+                    <div class="card compact stat-mini"><div class="stat-icon">😴</div><div class="stat-info"><div class="stat-value" id="ph-sleep">-</div><div class="stat-label">日均睡眠</div></div></div>
+                </div>
+                <div class="row three-col">
+                    <div class="card" style="grid-column: span 2;"><div class="card-title">📱 手机使用与 GPA 关系</div><div class="chart-box" id="ph-scatter"></div></div>
+                    <div class="card"><div class="card-title">📊 分段 GPA 分析</div><div class="chart-box" id="ph-segment"></div></div>
+                </div>
+                <div class="row two-col">
+                    <div class="card"><div class="card-title">👥 各群体手机使用</div><div class="chart-box" id="ph-cluster"></div></div>
+                    <div class="card"><div class="card-title">⚠️ 重度依赖画像</div><div class="info-list" id="ph-heavy"></div></div>
+                </div>
+            </section>
+
+            <!-- 毕业评估 -->
+            <section id="section-graduation" class="content-section" style="display:none;">
+                <div class="row four-col">
+                    <div class="card compact stat-mini"><div class="stat-icon">🎯</div><div class="stat-info"><div class="stat-value" id="g-score">-</div><div class="stat-label">达成度</div></div></div>
+                    <div class="card compact stat-mini"><div class="stat-icon">📚</div><div class="stat-info"><div class="stat-value" id="g-credit">-</div><div class="stat-label">学分完成</div></div></div>
+                    <div class="card compact stat-mini"><div class="stat-icon">📝</div><div class="stat-info"><div class="stat-value" id="g-cet4">-</div><div class="stat-label">四级</div></div></div>
+                    <div class="card compact stat-mini"><div class="stat-icon">🏆</div><div class="stat-info"><div class="stat-value" id="g-level">-</div><div class="stat-label">毕业等级</div></div></div>
+                </div>
+                <div class="row two-col">
+                    <div class="card">
+                        <div class="card-title">🎯 达成度评分</div>
+                        <div class="gauge-container"><div class="gauge-ring"><div class="gauge-bg"></div><div class="gauge-fill" id="gauge-grad"></div><div class="gauge-inner"><div class="gauge-value" id="val-grad">-</div><div class="gauge-label">达成度</div></div></div></div>
+                        <div class="info-list" id="g-metrics"></div>
+                    </div>
+                    <div class="card"><div class="card-title">📊 达成度分布</div><div class="chart-box" id="g-pie"></div></div>
+                </div>
+                <div class="row two-col">
+                    <div class="card"><div class="card-title">👥 各群体达成度</div><div class="chart-box" id="g-cluster"></div></div>
+                    <div class="card"><div class="card-title">📅 各年级达成度</div><div class="chart-box" id="g-grade"></div></div>
+                </div>
+            </section>
+
+            <!-- 个性推荐 -->
+            <section id="section-recommend" class="content-section" style="display:none;">
+                <div class="row three-col">
+                    <div class="card"><div class="card-title">🎯 画像概览</div><div class="chart-box" id="rec-radar"></div></div>
+                    <div class="card" style="grid-column: span 2;">
+                        <div class="card-title">💡 个性化推荐</div>
+                        <div class="rec-list" id="rec-list"></div>
+                        <div id="rec-weak" style="margin-top:1rem;"></div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="card"><div class="card-title">📊 群体对比参考</div><table class="data-table" id="rec-table"><thead><tr><th>指标</th><th>您的得分</th><th>群体平均</th><th>差距</th></tr></thead><tbody></tbody></table></div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script>
+        // 全局变量
+        let students = [], profiles = [], stats = {}, current = null;
+        let charts = {};
+
+        // 错误处理
+        window.addEventListener('error', (e) => {
+            console.error('JS Error:', e.message);
+        });
+
+        // 初始化
+        async function init() {
+            try {
+                console.log('开始加载数据...');
+                const [r1, r2, r3] = await Promise.all([
+                    fetch('output/students.json'),
+                    fetch('output/profiles.json'),
+                    fetch('output/stats.json')
+                ]);
+                if (!r1.ok || !r2.ok || !r3.ok) throw new Error('数据文件加载失败');
+                students = await r1.json();
+                profiles = await r2.json();
+                stats = await r3.json();
+                console.log('数据加载完成:', students.length, '条学生记录');
+                populateSelect();
+                bindEvents();
+                if (students.length) {
+                    document.getElementById('studentSelect').value = students[0].student_id;
+                    current = students[0];
+                }
+                initCharts();
+                updateAll();
+            } catch (e) {
+                console.error('初始化失败:', e);
+                showError('数据加载失败: ' + e.message);
+            }
+        }
+
+        function showError(msg) {
+            const div = document.createElement('div');
+            div.className = 'error-msg';
+            div.textContent = msg;
+            document.body.appendChild(div);
+        }
+
+        function populateSelect() {
+            const sel = document.getElementById('studentSelect');
+            sel.innerHTML = '<option value="">选择学生...</option>';
+            students.forEach(s => {
+                const opt = document.createElement('option');
+                opt.value = s.student_id;
+                opt.textContent = `${s.student_id} - ${s.cluster_name}`;
+                sel.appendChild(opt);
+            });
+        }
+
+        function bindEvents() {
+            document.getElementById('studentSelect').addEventListener('change', e => {
+                const id = e.target.value;
+                current = students.find(s => s.student_id === id);
+                if (current) updateAll();
+            });
+            document.getElementById('randomBtn').addEventListener('click', () => {
+                const s = students[Math.floor(Math.random() * students.length)];
+                document.getElementById('studentSelect').value = s.student_id;
+                current = s;
+                updateAll();
+            });
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    document.querySelectorAll('.content-section').forEach(s => s.style.display = 'none');
+                    document.getElementById('section-' + btn.dataset.section).style.display = 'block';
+                    setTimeout(() => Object.values(charts).forEach(c => c && c.resize && c.resize()), 100);
+                });
+            });
+        }
+
+        function getRecs() {
+            const map = {
+                '学霸型': ['保持优秀学习习惯', '参与学术竞赛', '分享学习经验', '培养领导力', '劳逸结合'],
+                '均衡型': ['保持平衡', '薄弱科目突破', '课堂讨论', '定期复习', '良好作息'],
+                '努力型': ['优化方法', '寻求辅导', '明确目标', '减少手机', '调整心态'],
+                '佛系型': ['建立目标', '提高参与', '减少娱乐', '寻找兴趣', '交流经验'],
+                '高危型': ['紧急干预', '心理辅导', '改善计划', '改善睡眠', '定期沟通']
+            };
+            let res = (map[current.cluster_name] || []).slice();
+            if (current.study_engagement_index < 0.6) res.push('提高学习投入');
+            if (current.life_regularity_index < 0.6) res.push('改善生活规律');
+            if (current.mental_health_index < 0.6) res.push('关注心理健康');
+            if (current.current_gpa < 3.0) res.push('加强基础课程');
+            return res.slice(0, 6);
+        }
+
+        function safe(id) {
+            const el = document.getElementById(id);
+            if (!el) console.warn('Element not found:', id);
+            return el;
+        }
+
+        function updateAll() {
+            if (!current) return;
+            updateProfile();
+            updateRisk();
+            updateFamily();
+            updatePhone();
+            updateGraduation();
+            updateRecommend();
+        }
+
+        function updateProfile() {
+            safe('p-cluster').textContent = current.cluster_name;
+            safe('p-gpa').textContent = current.current_gpa.toFixed(2);
+            safe('p-grad').textContent = (current.graduation_achievement * 100).toFixed(0) + '%';
+            safe('p-risk').textContent = current.fail_risk_level;
+
+            safe('p-basic').innerHTML = `
+                <div class="info-item"><span class="info-label">学号</span><span class="info-value">${current.student_id}</span></div>
+                <div class="info-item"><span class="info-label">性别</span><span class="info-value">${current.gender}</span></div>
+                <div class="info-item"><span class="info-label">年级</span><span class="info-value">${current.grade}</span></div>
+                <div class="info-item"><span class="info-label">学院</span><span class="info-value">${current.college}</span></div>
+                <div class="info-item"><span class="info-label">专业</span><span class="info-value">${current.major}</span></div>
+            `;
+
+            const s = current.study_engagement_index;
+            const l = current.life_regularity_index;
+            const m = current.mental_health_index;
+
+            safe('gauge-study').style.setProperty('--fill', s * 360 + 'deg');
+            safe('val-study').textContent = s.toFixed(2);
+            safe('gauge-life').style.setProperty('--fill', l * 360 + 'deg');
+            safe('val-life').textContent = l.toFixed(2);
+            safe('gauge-mental').style.setProperty('--fill', m * 360 + 'deg');
+            safe('val-mental').textContent = m.toFixed(2);
+
+            const prof = profiles.find(p => p.cluster_name === current.cluster_name);
+            const sv = [s, l, m, current.attendance_rate, current.current_gpa / 5];
+            const pv = prof ? [prof.study_engagement_index, prof.life_regularity_index, prof.mental_health_index, prof.attendance_rate, prof.current_gpa / 5] : [0.5, 0.5, 0.5, 0.8, 0.6];
+            if (charts.pRadar) charts.pRadar.setOption({ series: [{ data: [{ value: sv, name: '当前学生' }, { value: pv, name: '群体平均' }] }] });
+
+            safe('p-recs').innerHTML = getRecs().map((r, i) => `<div class="rec-item"><strong>${i + 1}.</strong> ${r}</div>`).join('');
+        }
+
+        function updateRisk() {
+            const r = current.fail_risk_level;
+            const card = safe('r-alert');
+            card.className = 'alert-box ' + (r === '高风险' ? 'alert-danger' : r === '中风险' ? 'alert-warning' : 'alert-success');
+            card.querySelector('div').textContent = r === '高风险' ? '🔴' : r === '中风险' ? '🟡' : '🟢';
+            safe('r-alert-text').textContent = r === '高风险' ? '紧急关注干预' : r === '中风险' ? '需要关注辅导' : '状态良好';
+            safe('r-failed-total').textContent = current.failed_courses_total + '门';
+            safe('r-failed-current').textContent = current.failed_courses_current + '门';
+            safe('r-warning').textContent = current.has_warning_history ? '有' : '无';
+            safe('r-tutoring').textContent = current.has_tutoring ? '是' : '否';
+        }
+
+        function updateFamily() {
+            const pstyle = current.is_poverty ? 'tag-orange' : 'tag-green';
+            safe('f-info').innerHTML = `
+                <div class="info-item"><span class="info-label">家庭收入</span><span class="info-value">${current.family_income_level || '-'}</span></div>
+                <div class="info-item"><span class="info-label">贫困生</span><span class="info-value"><span class="tag ${pstyle}">${current.is_poverty ? '是' : '否'}</span></span></div>
+                <div class="info-item"><span class="info-label">户籍类型</span><span class="info-value">${current.native_place_type || '-'}</span></div>
+                <div class="info-item"><span class="info-label">独生子女</span><span class="info-value">${current.is_only_child ? '是' : '否'}</span></div>
+                <div class="info-item"><span class="info-label">家乡</span><span class="info-value">${current.hometown || '-'}</span></div>
+            `;
+            const povertyCount = students.filter(s => s.is_poverty === 1).length;
+            const ruralCount = students.filter(s => s.native_place_type && (s.native_place_type.includes('农村') || s.native_place_type.includes('乡村'))).length;
+            const onlyCount = students.filter(s => s.is_only_child === 1).length;
+            safe('f-poverty-stat').textContent = povertyCount;
+            safe('f-rural-stat').textContent = ruralCount;
+            safe('f-only-stat').textContent = onlyCount;
+            safe('f-gap-stat').textContent = (stats.poverty_gpa_avg.non_poverty - stats.poverty_gpa_avg.poverty).toFixed(2);
+        }
+
+        function updatePhone() {
+            const ph = current.phone_usage_hours;
+            let level = '正常', lclass = 'tag-green';
+            if (ph > 8) { level = '重度依赖'; lclass = 'tag-red'; }
+            else if (ph > 6) { level = '中度依赖'; lclass = 'tag-orange'; }
+            safe('ph-hours').textContent = ph.toFixed(1) + 'h';
+            safe('ph-level').innerHTML = `<span class="tag ${lclass}">${level}</span>`;
+            safe('ph-corr').textContent = stats.phone_gpa_corr ? stats.phone_gpa_corr.toFixed(2) : '-';
+            safe('ph-sleep').textContent = current.avg_sleep_hours.toFixed(1) + 'h';
+
+            const heavy = students.filter(s => s.phone_usage_hours > 8);
+            const heavyAvgGpa = heavy.length > 0 ? (heavy.reduce((sum, s) => sum + s.current_gpa, 0) / heavy.length).toFixed(2) : '-';
+            const heavyAvgSleep = heavy.length > 0 ? (heavy.reduce((sum, s) => sum + s.avg_sleep_hours, 0) / heavy.length).toFixed(1) : '-';
+            safe('ph-heavy').innerHTML = `
+                <div class="info-item"><span class="info-label">重度依赖人数</span><span class="info-value">${heavy.length}人 (${(heavy.length / students.length * 100).toFixed(1)}%)</span></div>
+                <div class="info-item"><span class="info-label">平均 GPA</span><span class="info-value">${heavyAvgGpa}</span></div>
+                <div class="info-item"><span class="info-label">平均睡眠</span><span class="info-value">${heavyAvgSleep}h</span></div>
+                <div class="info-item"><span class="info-label">平均出勤</span><span class="info-value">${heavy.length > 0 ? (heavy.reduce((sum, s) => sum + s.attendance_rate, 0) / heavy.length * 100).toFixed(0) : '-'}%</span></div>
+            `;
+        }
+
+        function updateGraduation() {
+            const l = current.graduation_level;
+            safe('g-score').textContent = (current.graduation_achievement * 100).toFixed(0) + '%';
+            safe('g-credit').textContent = (current.credit_completion_rate * 100).toFixed(0) + '%';
+            safe('g-cet4').textContent = current.cet4_passed ? '已通过' : '未通过';
+            safe('g-level').textContent = l;
+
+            safe('gauge-grad').style.setProperty('--fill', current.graduation_achievement * 360 + 'deg');
+            safe('val-grad').textContent = (current.graduation_achievement * 100).toFixed(0) + '%';
+
+            safe('g-metrics').innerHTML = `
+                <div class="info-item"><span class="info-label">学分完成率</span><span class="info-value">${(current.credit_completion_rate * 100).toFixed(0)}%</span></div>
+                <div class="info-item"><span class="info-label">GPA</span><span class="info-value">${current.current_gpa.toFixed(2)}</span></div>
+                <div class="info-item"><span class="info-label">四级通过</span><span class="info-value">${current.cet4_passed ? '是' : '否'}</span></div>
+            `;
+        }
+
+        function updateRecommend() {
+            const sv = [current.study_engagement_index, current.life_regularity_index, current.mental_health_index, current.attendance_rate, current.current_gpa / 5];
+            if (charts.recRadar) charts.recRadar.setOption({ series: [{ data: [{ value: sv, name: '当前学生' }] }] });
+
+            const weak = [];
+            if (current.study_engagement_index < 0.6) weak.push('学习投入不足');
+            if (current.life_regularity_index < 0.6) weak.push('生活不够规律');
+            if (current.mental_health_index < 0.6) weak.push('心理健康需关注');
+            if (current.current_gpa < 3.0) weak.push('GPA偏低');
+
+            safe('rec-weak').innerHTML = weak.length ?
+                `<div class="alert-box alert-warning"><div>⚠️</div><div><h4>需改善</h4><p>${weak.join('、')}</p></div></div>` :
+                `<div class="alert-box alert-success"><div>✅</div><div><h4>状态良好</h4><p>各维度表现良好</p></div></div>`;
+
+            safe('rec-list').innerHTML = getRecs().map((r, i) => `<div class="rec-item"><strong>${i + 1}.</strong> ${r}</div>`).join('');
+
+            const prof = profiles.find(p => p.cluster_name === current.cluster_name);
+            if (prof) {
+                const rows = [
+                    { name: '学习投入', cur: current.study_engagement_index, avg: prof.study_engagement_index },
+                    { name: '生活规律', cur: current.life_regularity_index, avg: prof.life_regularity_index },
+                    { name: '心理健康', cur: current.mental_health_index, avg: prof.mental_health_index },
+                    { name: '当前GPA', cur: current.current_gpa, avg: prof.current_gpa, isGPA: true }
+                ];
+                document.querySelector('#rec-table tbody').innerHTML = rows.map(r => {
+                    const diff = r.cur - r.avg;
+                    const diffClass = diff > 0 ? 'tag-green' : diff < 0 ? 'tag-red' : 'tag-blue';
+                    const diffText = (diff > 0 ? '+' : '') + (r.isGPA ? diff.toFixed(2) : diff.toFixed(3));
+                    return `<tr><td>${r.name}</td><td>${r.isGPA ? r.cur.toFixed(2) : r.cur.toFixed(3)}</td><td>${r.isGPA ? r.avg.toFixed(2) : r.avg.toFixed(3)}</td><td><span class="tag ${diffClass}">${diffText}</span></td></tr>`;
+                }).join('');
+            }
+        }
+
+        function initCharts() {
+            // 通用 grid 配置（解决文字重叠问题）
+            const baseGrid = { top: 50, right: 20, bottom: 60, left: 50, containLabel: true };
+            const baseTooltip = { trigger: 'axis', textStyle: { color: '#fff' }, backgroundColor: 'rgba(20,20,40,0.95)', borderColor: '#00d4ff' };
+            const axisStyle = { axisLabel: { color: '#8892b0', fontSize: 11 }, axisLine: { lineStyle: { color: 'rgba(0,212,255,0.3)' } }, splitLine: { lineStyle: { color: 'rgba(0,212,255,0.1)' } } };
+
+            charts.pRadar = initRadar('p-radar', ['当前学生', '群体平均']);
+            charts.recRadar = initRadar('rec-radar', ['当前学生']);
+
+            charts.rPie = echarts.init(document.getElementById('r-pie'));
+            charts.rPie.setOption({
+                tooltip: { trigger: 'item' }, legend: { orient: 'vertical', right: 5, top: 'center', textStyle: { color: '#8892b0', fontSize: 11 } },
+                series: [{ type: 'pie', radius: ['35%', '65%'], center: ['38%', '50%'],
+                    data: Object.entries(stats.risk_distribution || {}).map(([n, v]) => ({ name: n, value: v, itemStyle: { color: n === '低风险' ? '#10b981' : n === '中风险' ? '#f59e0b' : '#ef4444' } })) }]
+            });
+
+            const avgGpa = {};
+            students.forEach(s => { if (!avgGpa[s.fail_risk_level]) avgGpa[s.fail_risk_level] = { sum: 0, c: 0 }; avgGpa[s.fail_risk_level].sum += s.current_gpa; avgGpa[s.fail_risk_level].c++; });
+            charts.rGpa = echarts.init(document.getElementById('r-gpa'));
+            charts.rGpa.setOption({
+                tooltip: baseTooltip, grid: baseGrid, xAxis: { type: 'category', data: Object.keys(avgGpa), ...axisStyle }, yAxis: { type: 'value', ...axisStyle },
+                series: [{ type: 'bar', barWidth: '40%', data: Object.values(avgGpa).map((v, i) => ({ value: (v.sum / v.c).toFixed(2), itemStyle: { color: ['#10b981', '#f59e0b', '#ef4444'][i] || '#00d4ff' } })) }]
+            });
+
+            const clusterRisk = {};
+            students.forEach(s => { const k = s.cluster_name; if (!clusterRisk[k]) clusterRisk[k] = { '低风险': 0, '中风险': 0, '高风险': 0 }; if (clusterRisk[k][s.fail_risk_level] !== undefined) clusterRisk[k][s.fail_risk_level]++; });
+            charts.rCluster = echarts.init(document.getElementById('r-cluster'));
+            charts.rCluster.setOption({
+                tooltip: baseTooltip, legend: { top: 5, textStyle: { color: '#8892b0', fontSize: 11 } }, grid: { top: 40, right: 15, bottom: 50, left: 40, containLabel: true },
+                xAxis: { type: 'category', data: Object.keys(clusterRisk), ...axisStyle, axisLabel: { ...axisStyle.axisLabel, rotate: 15, fontSize: 10 } },
+                yAxis: { type: 'value', ...axisStyle },
+                series: [
+                    { name: '低风险', type: 'bar', stack: 'a', data: Object.values(clusterRisk).map(v => v['低风险']), itemStyle: { color: '#10b981' } },
+                    { name: '中风险', type: 'bar', stack: 'a', data: Object.values(clusterRisk).map(v => v['中风险']), itemStyle: { color: '#f59e0b' } },
+                    { name: '高风险', type: 'bar', stack: 'a', data: Object.values(clusterRisk).map(v => v['高风险']), itemStyle: { color: '#ef4444' } }
+                ]
+            });
+
+            charts.fPoverty = echarts.init(document.getElementById('f-poverty'));
+            charts.fPoverty.setOption({
+                tooltip: baseTooltip, grid: baseGrid, xAxis: { type: 'category', data: ['非贫困生', '贫困生'], ...axisStyle }, yAxis: { type: 'value', ...axisStyle },
+                series: [{ type: 'bar', barWidth: '40%', data: [stats.poverty_gpa_avg.non_poverty.toFixed(2), stats.poverty_gpa_avg.poverty.toFixed(2)] }]
+            });
+
+            const native = {};
+            students.forEach(s => { const k = s.native_place_type || '未知'; if (!native[k]) native[k] = { sum: 0, c: 0 }; native[k].sum += s.current_gpa; native[k].c++; });
+            charts.fNative = echarts.init(document.getElementById('f-native'));
+            charts.fNative.setOption({
+                tooltip: baseTooltip, grid: { top: 50, right: 15, bottom: 70, left: 45, containLabel: true },
+                xAxis: { type: 'category', data: Object.keys(native), ...axisStyle, axisLabel: { ...axisStyle.axisLabel, rotate: 25, fontSize: 10 } },
+                yAxis: { type: 'value', ...axisStyle },
+                series: [{ type: 'bar', barWidth: '40%', data: Object.values(native).map(v => (v.sum / v.c).toFixed(2)), itemStyle: { color: '#a855f7' } }]
+            });
+
+            const income = {};
+            students.forEach(s => { const k = s.family_income_level || '未知'; if (!income[k]) income[k] = { sum: 0, c: 0 }; income[k].sum += s.current_gpa; income[k].c++; });
+            charts.fIncome = echarts.init(document.getElementById('f-income'));
+            charts.fIncome.setOption({
+                tooltip: baseTooltip, grid: { top: 50, right: 15, bottom: 70, left: 45, containLabel: true },
+                xAxis: { type: 'category', data: Object.keys(income), ...axisStyle, axisLabel: { ...axisStyle.axisLabel, rotate: 25, fontSize: 10 } },
+                yAxis: { type: 'value', ...axisStyle },
+                series: [{ type: 'bar', barWidth: '40%', data: Object.values(income).map(v => (v.sum / v.c).toFixed(2)), itemStyle: { color: '#10b981' } }]
+            });
+
+            charts.phScatter = echarts.init(document.getElementById('ph-scatter'));
+            charts.phScatter.setOption({
+                tooltip: baseTooltip, grid: baseGrid,
+                xAxis: { name: '手机使用(小时)', nameTextStyle: { color: '#8892b0' }, min: 0, max: 12, ...axisStyle },
+                yAxis: { name: 'GPA', nameTextStyle: { color: '#8892b0' }, min: 0, max: 5, ...axisStyle },
+                series: [{ type: 'scatter', symbolSize: 6, data: students.slice(0, 500).map(s => [s.phone_usage_hours, s.current_gpa]), itemStyle: { color: 'rgba(0,212,255,0.6)' } }]
+            });
+
+            charts.phSegment = echarts.init(document.getElementById('ph-segment'));
+            charts.phSegment.setOption({
+                tooltip: baseTooltip, grid: baseGrid,
+                xAxis: { type: 'category', data: Object.keys(stats.phone_segments_gpa || {}), ...axisStyle },
+                yAxis: { type: 'value', min: 2.5, max: 4, ...axisStyle },
+                series: [{ type: 'bar', barWidth: '40%', data: Object.entries(stats.phone_segments_gpa || {}).map(([n, v]) => ({ value: v.toFixed(2), itemStyle: { color: n === '<3h' ? '#10b981' : n === '3-6h' ? '#8bc34a' : n === '6-8h' ? '#f59e0b' : '#ef4444' } })) }]
+            });
+
+            const clusterPhone = {};
+            students.forEach(s => { const k = s.cluster_name; if (!clusterPhone[k]) clusterPhone[k] = { sum: 0, c: 0 }; clusterPhone[k].sum += s.phone_usage_hours; clusterPhone[k].c++; });
+            charts.phCluster = echarts.init(document.getElementById('ph-cluster'));
+            charts.phCluster.setOption({
+                tooltip: baseTooltip, grid: { top: 50, right: 15, bottom: 70, left: 45, containLabel: true },
+                xAxis: { type: 'category', data: Object.keys(clusterPhone), ...axisStyle, axisLabel: { ...axisStyle.axisLabel, rotate: 20, fontSize: 10 } },
+                yAxis: { type: 'value', ...axisStyle },
+                series: [{ type: 'bar', barWidth: '40%', data: Object.values(clusterPhone).map(v => (v.sum / v.c).toFixed(2)), itemStyle: { color: '#00d4ff' } }]
+            });
+
+            charts.gPie = echarts.init(document.getElementById('g-pie'));
+            charts.gPie.setOption({
+                tooltip: { trigger: 'item' }, legend: { orient: 'vertical', right: 5, top: 'center', textStyle: { color: '#8892b0', fontSize: 11 } },
+                series: [{ type: 'pie', radius: ['35%', '65%'], center: ['38%', '50%'],
+                    data: Object.entries(stats.graduation_distribution || {}).map(([n, v]) => ({ name: n, value: v, itemStyle: { color: n === '优秀' ? '#10b981' : n === '良好' ? '#8bc34a' : n === '风险' ? '#f59e0b' : '#ef4444' } })) }]
+            });
+
+            const cGrad = {};
+            students.forEach(s => { const k = s.cluster_name; if (!cGrad[k]) cGrad[k] = { sum: 0, c: 0 }; cGrad[k].sum += s.graduation_achievement; cGrad[k].c++; });
+            charts.gCluster = echarts.init(document.getElementById('g-cluster'));
+            charts.gCluster.setOption({
+                tooltip: baseTooltip, grid: { top: 50, right: 15, bottom: 70, left: 45, containLabel: true },
+                xAxis: { type: 'category', data: Object.keys(cGrad), ...axisStyle, axisLabel: { ...axisStyle.axisLabel, rotate: 20, fontSize: 10 } },
+                yAxis: { type: 'value', min: 0.4, max: 1, ...axisStyle },
+                series: [{ type: 'bar', barWidth: '40%', data: Object.values(cGrad).map(v => (v.sum / v.c).toFixed(2)), itemStyle: { color: '#00d4ff' } }]
+            });
+
+            const gGrad = {};
+            students.forEach(s => { const k = s.grade; if (!gGrad[k]) gGrad[k] = { sum: 0, c: 0 }; gGrad[k].sum += s.graduation_achievement; gGrad[k].c++; });
+            charts.gGrade = echarts.init(document.getElementById('g-grade'));
+            charts.gGrade.setOption({
+                tooltip: baseTooltip, grid: baseGrid,
+                xAxis: { type: 'category', data: Object.keys(gGrad), ...axisStyle },
+                yAxis: { type: 'value', min: 0.4, max: 1, ...axisStyle },
+                series: [{ type: 'bar', barWidth: '40%', data: Object.values(gGrad).map(v => (v.sum / v.c).toFixed(2)), itemStyle: { color: '#a855f7' } }]
+            });
+        }
+
+        function initRadar(id, names) {
+            const dom = document.getElementById(id);
+            if (!dom) return null;
+            const chart = echarts.init(dom);
+            chart.setOption({
+                tooltip: { trigger: 'item', textStyle: { color: '#fff' }, backgroundColor: 'rgba(20,20,40,0.95)', borderColor: '#00d4ff' },
+                legend: { data: names, bottom: 5, textStyle: { color: '#8892b0', fontSize: 11 } },
+                radar: {
+                    center: ['50%', '50%'],
+                    radius: '60%',
+                    indicator: [{ name: '学习投入', max: 1 }, { name: '生活规律', max: 1 }, { name: '心理健康', max: 1 }, { name: '学业成绩', max: 1 }, { name: 'GPA水平', max: 1 }],
+                    axisName: { color: '#8892b0', fontSize: 11 },
+                    splitArea: { areaStyle: { color: ['rgba(0,212,255,0.05)', 'rgba(0,212,255,0.1)'] } },
+                    splitLine: { lineStyle: { color: 'rgba(0,212,255,0.2)' } },
+                    axisLine: { lineStyle: { color: 'rgba(0,212,255,0.2)' } }
+                },
+                series: [{ type: 'radar', data: names.map((n, i) => ({ value: [0.7, 0.7, 0.7, 0.8, 0.7], name: n, areaStyle: { color: i === 0 ? 'rgba(0,212,255,0.3)' : 'rgba(168,85,247,0.2)' }, lineStyle: { color: i === 0 ? '#00d4ff' : '#a855f7' } })) }]
+            });
+            return chart;
+        }
+
+        window.addEventListener('resize', () => Object.values(charts).forEach(c => c && c.resize && c.resize()));
+        init();
+    </script>
+</body>
+</html>
