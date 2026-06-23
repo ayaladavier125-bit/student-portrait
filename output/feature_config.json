@@ -1,0 +1,29 @@
+{
+  "clustering_features": [
+    "study_engagement_index",
+    "life_regularity_index",
+    "mental_health_index",
+    "attendance_rate",
+    "homework_completion_rate",
+    "online_study_hours",
+    "library_visits_per_month",
+    "phone_usage_hours",
+    "avg_sleep_hours",
+    "exercise_frequency",
+    "current_gpa",
+    "previous_gpa",
+    "class_participation",
+    "consumption_regularity",
+    "sleep_regularity"
+  ],
+  "optimal_k": 5,
+  "cluster_names": {
+    "0": "均衡型",
+    "1": "佛系型",
+    "2": "高危型",
+    "3": "均衡型",
+    "4": "学霸型"
+  },
+  "pca_components": 11,
+  "explained_variance": 0.9439632779538504
+}
