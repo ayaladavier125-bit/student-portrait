@@ -1,0 +1,34 @@
+{
+  "total_students": 2512,
+  "platform": "Apache Spark 4.1.2",
+  "kmeans_engine": "Spark MLlib",
+  "cluster_distribution": {
+    "均衡型": 497,
+    "佛系型": 608,
+    "努力型": 508,
+    "学霸型": 476,
+    "高危型": 423
+  },
+  "risk_distribution": {
+    "低风险": 1631,
+    "高风险": 251,
+    "中风险": 630
+  },
+  "graduation_distribution": {
+    "严重风险": 619,
+    "优秀": 109,
+    "良好": 707,
+    "风险": 1077
+  },
+  "poverty_gpa_avg": {
+    "poverty": 3.5125696594427245,
+    "non_poverty": 3.4482686158063043
+  },
+  "phone_gpa_corr": -0.2994746572966898,
+  "phone_segments_gpa": {
+    "<3h": 3.722871287128713,
+    "3-6h": 3.5163489445910288,
+    "6-8h": 3.3429722921914355,
+    ">8h": 3.1851980198019803
+  }
+}
